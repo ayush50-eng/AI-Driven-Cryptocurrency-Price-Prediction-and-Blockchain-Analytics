@@ -2,17 +2,18 @@
    Credit Card Fraud Detection — style.css
    =========================================== */
 
-/* ── Google Font ── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+/* ── Google Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
 
 /* ── CSS Variables ── */
 :root {
-  --bg-dark:       #0d0f1a;
-  --bg-card:       #131629;
-  --bg-card2:      #1a1e35;
-  --accent:        #6c63ff;
-  --accent-light:  #8b85ff;
-  --accent-glow:   rgba(108, 99, 255, 0.35);
+  --bg-dark:       #07141d;
+  --bg-card:       #0f2331;
+  --bg-card2:      #163447;
+  --accent:        #00c2a8;
+  --accent-light:  #5de2d4;
+  --accent-glow:   rgba(0, 194, 168, 0.35);
+  --accent-warm:   #ffb347;
   --danger:        #ff4d6d;
   --danger-soft:   rgba(255, 77, 109, 0.15);
   --success:       #00e5a0;
@@ -31,8 +32,11 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: 'Inter', sans-serif;
-  background: var(--bg-dark);
+  font-family: 'Outfit', sans-serif;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(0, 194, 168, 0.16), transparent 38%),
+    radial-gradient(circle at 92% 18%, rgba(255, 179, 71, 0.12), transparent 36%),
+    linear-gradient(180deg, #061019 0%, #081723 60%, #081a29 100%);
   color: var(--text-primary);
   min-height: 100vh;
   padding: 0;
@@ -45,8 +49,8 @@ body::before {
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(108,99,255,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(108,99,255,0.04) 1px, transparent 1px);
+    linear-gradient(rgba(0,194,168,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,194,168,0.05) 1px, transparent 1px);
   background-size: 48px 48px;
   pointer-events: none;
   z-index: 0;
@@ -58,7 +62,7 @@ body::after {
   position: fixed;
   top: -200px; left: -200px;
   width: 600px; height: 600px;
-  background: radial-gradient(circle, rgba(108,99,255,0.18) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(0,194,168,0.2) 0%, transparent 70%);
   pointer-events: none;
   z-index: 0;
   animation: orbFloat 12s ease-in-out infinite alternate;
@@ -77,6 +81,27 @@ body::after {
   padding: 3rem 1rem 5rem;
 }
 
+/* ── Entrance Motion (lightweight + accessible) ── */
+.reveal-item {
+  opacity: 0;
+  transform: translateY(10px) scale(0.995);
+  transition: opacity 380ms ease, transform 460ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-item.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-item {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 /* ── Hero Header ── */
 .hero-header {
   text-align: center;
@@ -87,8 +112,8 @@ body::after {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(108,99,255,0.15);
-  border: 1px solid rgba(108,99,255,0.3);
+  background: rgba(0,194,168,0.12);
+  border: 1px solid rgba(93,226,212,0.4);
   color: var(--accent-light);
   font-size: 0.78rem;
   font-weight: 600;
@@ -100,10 +125,11 @@ body::after {
 }
 
 .hero-title {
+  font-family: 'Space Grotesk', sans-serif;
   font-size: clamp(1.8rem, 4vw, 2.8rem);
   font-weight: 800;
   line-height: 1.2;
-  background: linear-gradient(135deg, #ffffff 0%, var(--accent-light) 60%, #a78bfa 100%);
+  background: linear-gradient(125deg, #ffffff 0%, #9bf7ec 55%, #ffd07e 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -128,8 +154,8 @@ body::after {
 }
 
 .stat-pill {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  border: 1px solid rgba(93,226,212,0.2);
   border-radius: 100px;
   padding: 8px 20px;
   font-size: 0.82rem;
@@ -153,19 +179,20 @@ body::after {
 
 /* ── Main Card ── */
 .main-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(18,45,61,0.84), rgba(12,34,47,0.84));
+  border: 1px solid rgba(93,226,212,0.16);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  box-shadow: 0 22px 60px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.04);
   overflow: hidden;
   max-width: 900px;
   margin: 0 auto;
+  backdrop-filter: blur(8px);
 }
 
 /* Card Header */
 .card-header-custom {
-  background: linear-gradient(135deg, var(--bg-card2) 0%, rgba(108,99,255,0.12) 100%);
-  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, rgba(22,52,71,0.9) 0%, rgba(0,194,168,0.12) 100%);
+  border-bottom: 1px solid rgba(93,226,212,0.16);
   padding: 1.4rem 2rem;
   display: flex;
   align-items: center;
@@ -174,7 +201,7 @@ body::after {
 
 .card-header-icon {
   width: 42px; height: 42px;
-  background: linear-gradient(135deg, var(--accent) 0%, #a78bfa 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, #18f1cc 60%, var(--accent-warm) 100%);
   border-radius: var(--radius-md);
   display: flex; align-items: center; justify-content: center;
   font-size: 1.1rem;
@@ -260,7 +287,7 @@ body::after {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Outfit', sans-serif;
   font-size: 0.88rem;
   padding: 9px 12px;
   transition: border-color var(--transition), box-shadow var(--transition);
@@ -279,11 +306,11 @@ body::after {
 
 /* ── Buttons ── */
 .btn-primary-custom {
-  background: linear-gradient(135deg, var(--accent) 0%, #a78bfa 100%);
+  background: linear-gradient(135deg, #00c2a8 0%, #24dcc8 55%, #ffb347 100%);
   color: #fff;
   border: none;
   border-radius: var(--radius-md);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Space Grotesk', sans-serif;
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -311,11 +338,11 @@ body::after {
 }
 
 .btn-autofill {
-  background: rgba(108,99,255,0.12);
+  background: rgba(0,194,168,0.12);
   color: var(--accent-light);
-  border: 1px solid rgba(108,99,255,0.3);
+  border: 1px solid rgba(93,226,212,0.35);
   border-radius: var(--radius-md);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Outfit', sans-serif;
   font-size: 0.82rem;
   font-weight: 600;
   padding: 8px 18px;
@@ -327,7 +354,7 @@ body::after {
 }
 
 .btn-autofill:hover {
-  background: rgba(108,99,255,0.22);
+  background: rgba(0,194,168,0.24);
   border-color: var(--accent);
   transform: translateY(-1px);
 }
@@ -337,7 +364,7 @@ body::after {
   color: var(--text-muted);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Outfit', sans-serif;
   font-size: 0.82rem;
   font-weight: 600;
   padding: 8px 18px;
@@ -384,7 +411,7 @@ body::after {
 
 .spinner-ring {
   width: 48px; height: 48px;
-  border: 3px solid rgba(108,99,255,0.2);
+  border: 3px solid rgba(0,194,168,0.22);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.85s linear infinite;
@@ -464,6 +491,16 @@ body::after {
   margin: 0;
 }
 
+.risk-level,
+.recommended-action {
+  margin-top: 6px !important;
+  font-size: 0.8rem !important;
+  font-weight: 600;
+}
+
+.risk-level { color: #ffd166 !important; }
+.recommended-action { color: var(--text-primary) !important; }
+
 /* Probability Bar */
 .prob-section {
   width: 100%;
@@ -509,7 +546,179 @@ body::after {
   text-decoration: none;
 }
 
+/* ── Charts ── */
+.section-top-gap {
+  margin-top: 2rem;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.chart-card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  border: 1px solid rgba(93,226,212,0.18);
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-card h4 {
+  font-size: 0.64rem;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+  letter-spacing: 0.03em;
+  font-family: 'Space Grotesk', sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chart-wrapper {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 120px;
+}
+
+.chart-card canvas {
+  /* Let Chart.js handle dimensions within the relative wrapper */
+}
+
+.batch-card {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(93,226,212,0.18);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+}
+
+.batch-note {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.8rem;
+}
+
+@media (max-width: 1200px) {
+  .charts-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .charts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.batch-form {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+#batch-file {
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  border: 1px solid rgba(93,226,212,0.22);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  min-width: 260px;
+}
+
+.batch-result {
+  margin-top: 1rem;
+}
+
+.batch-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+}
+
+.mini-stat {
+  border: 1px solid rgba(93,226,212,0.2);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.02);
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mini-stat strong {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.mini-stat span {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.batch-risk-card {
+  min-height: 200px;
+  margin-bottom: 1rem;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.batch-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.batch-table th,
+.batch-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.55rem 0.45rem;
+  text-align: left;
+}
+
+.batch-table th {
+  color: var(--accent-light);
+  font-weight: 700;
+}
+
+.batch-table td {
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-card {
+    min-height: 180px;
+  }
+
+  .chart-wrapper {
+    min-height: 120px;
+  }
+
+  .batch-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  #batch-file {
+    min-width: 100%;
+  }
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar       { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-dark); }
-::-webkit-scrollbar-thumb { background: rgba(108,99,255,0.4); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(0,194,168,0.45); border-radius: 3px; }

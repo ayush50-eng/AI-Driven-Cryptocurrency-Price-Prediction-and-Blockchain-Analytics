@@ -20,6 +20,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score,
     f1_score, classification_report, confusion_matrix
@@ -57,25 +58,16 @@ def load_data(path: str) -> pd.DataFrame:
 # ─────────────────────────────────────────────
 def preprocess(df: pd.DataFrame):
     """
-    Normalize 'Time' and 'Amount' using StandardScaler.
-    The V1-V28 features are already PCA-transformed (zero-mean).
+    Normalize features using StandardScaler.
+    Ensures exact column order to align perfectly with the inference app.
     """
-    print("[INFO] Preprocessing: normalizing 'Time' and 'Amount' ...")
+    print("[INFO] Preprocessing: normalizing all features ...")
 
-    scaler = StandardScaler()
-
-    df = df.copy()
-    df["scaled_time"]   = scaler.fit_transform(df[["Time"]])
-    df["scaled_amount"] = scaler.fit_transform(df[["Amount"]])
-
-    # Drop original columns; the scaler used for inference will be rebuilt below
-    df.drop(columns=["Time", "Amount"], inplace=True)
-
-    # Features matrix X and label vector y
-    X = df.drop(columns=["Class"])
+    # Enforce exact column order required by inference: Time, Amount, V1-V28
+    cols = ["Time", "Amount"] + [f"V{i}" for i in range(1, 29)]
+    X = df[cols]
     y = df["Class"]
 
-    # Rebuild a combined scaler on the full feature set for later use
     feature_scaler = StandardScaler()
     X_scaled = pd.DataFrame(
         feature_scaler.fit_transform(X),
@@ -122,6 +114,17 @@ def train_random_forest(X_train, y_train) -> RandomForestClassifier:
     return rf
 
 
+def train_decision_tree(X_train, y_train) -> DecisionTreeClassifier:
+    print("[INFO] Training Decision Tree ...")
+    dt = DecisionTreeClassifier(
+        max_depth=8,
+        random_state=RANDOM_STATE
+    )
+    dt.fit(X_train, y_train)
+    print("[INFO] Decision Tree trained.\n")
+    return dt
+
+
 # ─────────────────────────────────────────────
 # 5. EVALUATE MODEL
 # ─────────────────────────────────────────────
@@ -146,16 +149,26 @@ def evaluate_model(model, X_test, y_test, name: str) -> dict:
     print(f"\n  Classification Report:\n{classification_report(y_test, y_pred)}")
     print("=" * 50 + "\n")
 
-    return {"model": name, "accuracy": acc, "precision": prec,
-            "recall": rec, "f1": f1}
+    return {
+        "model": name,
+        "accuracy": acc,
+        "precision": prec,
+        "recall": rec,
+        "f1": f1,
+        "confusion_matrix": cm.tolist(),
+    }
 
 
 # ─────────────────────────────────────────────
 # 6. SAVE MODEL
 # ─────────────────────────────────────────────
-def save_model(model, scaler, path: str):
+def save_model(model, scaler, path: str, training_info: dict):
     """Persist model AND its feature scaler together as a bundle."""
-    bundle = {"model": model, "scaler": scaler}
+    bundle = {
+        "model": model,
+        "scaler": scaler,
+        "training_info": training_info,
+    }
     joblib.dump(bundle, path)
     print(f"[INFO] Model bundle saved -> {path}")
 
@@ -179,27 +192,47 @@ def main():
     # 4. SMOTE on training set only
     X_train_res, y_train_res = apply_smote(X_train, y_train)
 
-    # 5. Train both models
+    # 5. Train all models
     lr_model = train_logistic_regression(X_train_res, y_train_res)
+    dt_model = train_decision_tree(X_train_res, y_train_res)
     rf_model = train_random_forest(X_train_res, y_train_res)
 
-    # 6. Evaluate both
+    # 6. Evaluate
     print("\n[RESULTS] Evaluation on held-out test set:\n")
     lr_metrics = evaluate_model(lr_model, X_test, y_test, "Logistic Regression")
+    dt_metrics = evaluate_model(dt_model, X_test, y_test, "Decision Tree")
     rf_metrics = evaluate_model(rf_model, X_test, y_test, "Random Forest")
 
     # 7. Pick best model by F1-score
-    if rf_metrics["f1"] >= lr_metrics["f1"]:
+    best_f1 = max(lr_metrics["f1"], dt_metrics["f1"], rf_metrics["f1"])
+    if rf_metrics["f1"] == best_f1:
         best_model = rf_model
         winner = "Random Forest"
+    elif dt_metrics["f1"] == best_f1:
+        best_model = dt_model
+        winner = "Decision Tree"
     else:
         best_model = lr_model
         winner = "Logistic Regression"
 
-    print(f"[INFO] Best model selected: {winner} (F1={max(rf_metrics['f1'], lr_metrics['f1']):.4f})\n")
+    print(f"[INFO] Best model selected: {winner} (F1={best_f1:.4f})\n")
 
     # 8. Save
-    save_model(best_model, scaler, MODEL_OUTPUT)
+    class_counts = y.value_counts().to_dict()
+    training_info = {
+        "winner": winner,
+        "models": {
+            "logistic_regression": lr_metrics,
+            "decision_tree": dt_metrics,
+            "random_forest": rf_metrics,
+        },
+        "dataset": {
+            "total_rows": int(len(df)),
+            "fraud_count": int(class_counts.get(1, 0)),
+            "non_fraud_count": int(class_counts.get(0, 0)),
+        },
+    }
+    save_model(best_model, scaler, MODEL_OUTPUT, training_info)
     print("\n[OK] Training complete. Run  python app.py  to start the web server.\n")
 
 

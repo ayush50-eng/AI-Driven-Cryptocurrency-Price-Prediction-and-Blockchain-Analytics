@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Credit Card Fraud Detection | ML Powered</title>
+  <title>AI-Based Fraud Detection System For Digital Payments</title>
   <meta name="description"
         content="Real-time credit card fraud detection powered by a machine learning model trained on the Kaggle Fraud dataset." />
 
@@ -30,7 +30,7 @@
       <span>🛡️</span>
       AI-Powered Security System
     </div>
-    <h1 class="hero-title">Credit Card Fraud<br/>Detection Engine</h1>
+    <h1 class="hero-title">AI-Based Fraud Detection System<br/>For Digital Payments</h1>
     <p class="hero-subtitle">
       Real-time transaction analysis using a machine learning model
       trained on 284,807 real-world transactions.
@@ -119,6 +119,8 @@
           <div class="result-text">
             <h3 id="result-label">—</h3>
             <p  id="result-desc" >—</p>
+            <p id="risk-level" class="risk-level">Risk Level: —</p>
+            <p id="recommended-action" class="recommended-action">Action: —</p>
           </div>
         </div>
         <div class="prob-section">
@@ -128,6 +130,58 @@
           </div>
           <div class="prob-bar-track">
             <div class="prob-bar-fill" id="prob-bar"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Analytics Dashboard ── -->
+      <div class="section-label section-top-gap">Visual Analytics Dashboard</div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h4>Class Distribution</h4>
+          <div class="chart-wrapper"><canvas id="class-chart"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h4>Hourly Fraud Rate (%)</h4>
+          <div class="chart-wrapper"><canvas id="hourly-chart"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h4>Model Metrics Comparison</h4>
+          <div class="chart-wrapper"><canvas id="metrics-chart"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h4>Amount Distribution (Clipped p99)</h4>
+          <div class="chart-wrapper"><canvas id="amount-chart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="section-label section-top-gap">Batch CSV Analyzer</div>
+      <div class="batch-card">
+        <p class="batch-note">Upload a CSV containing Time, Amount, and V1–V28 columns to score many transactions in one request.</p>
+        <form id="batch-form" class="batch-form">
+          <input type="file" id="batch-file" accept=".csv" required />
+          <button type="submit" class="btn-autofill">📂 Analyze CSV Batch</button>
+        </form>
+        <div id="batch-result" class="batch-result" style="display:none;">
+          <div class="batch-stats" id="batch-stats"></div>
+          <div class="chart-card batch-risk-card">
+            <h4>Batch Risk Breakdown</h4>
+            <div class="batch-chart-wrapper" style="position: relative; width: 100%; height: 140px;">
+              <canvas id="batch-risk-chart"></canvas>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="batch-table">
+              <thead>
+                <tr>
+                  <th>Prediction</th>
+                  <th>Fraud %</th>
+                  <th>Risk</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="batch-top-rows"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -145,6 +199,8 @@
   </footer>
 
 </div><!-- /page-wrapper -->
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
 <!-- ══════════════ JAVASCRIPT ══════════════ -->
 <script>
@@ -203,6 +259,9 @@ const LEGIT_SAMPLE = {
   V25: 0.1285394065,  V26:-0.1891007276,  V27: 0.1335584146,  V28:-0.0210530535,
 };
 
+let batchRiskChart = null;
+let chartInstances = [];
+
 function fillSample(data) {
   document.getElementById('inp-time').value   = data.Time;
   document.getElementById('inp-amount').value = data.Amount;
@@ -221,6 +280,36 @@ document.getElementById('btn-legit-sample').addEventListener('click', () => fill
 document.getElementById('btn-reset').addEventListener('click', () => {
   document.getElementById('fraud-form').reset();
   hideResult();
+});
+
+document.getElementById('batch-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const fileInput = document.getElementById('batch-file');
+  if (!fileInput.files.length) {
+    alert('Please select a CSV file first.');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+
+  try {
+    const response = await fetch('/predict_batch', {
+      method: 'POST',
+      body: formData,
+    });
+    const result = await response.json();
+
+    if (!response.ok) {
+      alert(result.error || 'Batch scoring failed.');
+      return;
+    }
+
+    renderBatchResult(result.summary, result.top_risky_rows || []);
+  } catch (_) {
+    alert('Network error while uploading batch file.');
+  }
 });
 
 /* ─────────────────────────────────────────────────────
@@ -264,7 +353,7 @@ document.getElementById('fraud-form').addEventListener('submit', async function(
       return;
     }
 
-    renderResult(result.prediction, result.probability);
+    renderResult(result.prediction, result.probability, result.risk_level, result.recommended_action);
 
   } catch (err) {
     showLoading(false);
@@ -299,13 +388,16 @@ function hideResult() {
   card.style.display = 'none';
 }
 
-function renderResult(label, probability) {
+function renderResult(label, probability, riskLevel, recommendedAction) {
   const card      = document.getElementById('result-card');
   const icon      = document.getElementById('result-icon');
   const resultLbl = document.getElementById('result-label');
   const resultDsc = document.getElementById('result-desc');
+  const riskEl    = document.getElementById('risk-level');
+  const actionEl  = document.getElementById('recommended-action');
   const probPct   = document.getElementById('prob-pct');
   const probBar   = document.getElementById('prob-bar');
+  const probBarSection = document.querySelector('.prob-section');
 
   const isFraud = label === 'Fraud';
 
@@ -320,6 +412,9 @@ function renderResult(label, probability) {
     : `✔ This transaction appears legitimate. Fraud probability: ${probability}%`;
 
   probPct.textContent   = `${probability}%`;
+  if (probBarSection) probBarSection.style.display = 'block';
+  riskEl.textContent = `Risk Level: ${riskLevel || 'Unknown'}`;
+  actionEl.textContent = `Action: ${recommendedAction || 'Review manually'}`;
 
   // Show card before animating bar
   card.style.display = 'block';
@@ -334,6 +429,8 @@ function showError(msg) {
   const icon      = document.getElementById('result-icon');
   const resultLbl = document.getElementById('result-label');
   const resultDsc = document.getElementById('result-desc');
+  const riskEl    = document.getElementById('risk-level');
+  const actionEl  = document.getElementById('recommended-action');
   const probBarSection = document.querySelector('.prob-section');
 
   card.classList.remove('result-fraud', 'result-legit');
@@ -343,10 +440,318 @@ function showError(msg) {
   icon.textContent      = '⚠️';
   resultLbl.textContent = 'Error';
   resultDsc.textContent = msg;
+  riskEl.textContent = 'Risk Level: N/A';
+  actionEl.textContent = 'Action: Retry request';
   if (probBarSection) probBarSection.style.display = 'none';
 
   card.style.display = 'block';
 }
+
+function renderBatchResult(summary, topRows) {
+  const resultBox = document.getElementById('batch-result');
+  const stats = document.getElementById('batch-stats');
+  const rowsTbody = document.getElementById('batch-top-rows');
+
+  stats.innerHTML = `
+    <div class="mini-stat"><strong>Total Rows</strong><span>${summary.total_rows}</span></div>
+    <div class="mini-stat"><strong>Fraud Count</strong><span>${summary.fraud_count}</span></div>
+    <div class="mini-stat"><strong>Fraud Rate</strong><span>${summary.fraud_rate}%</span></div>
+    <div class="mini-stat"><strong>Avg Fraud Prob</strong><span>${summary.average_fraud_probability}%</span></div>
+  `;
+
+  rowsTbody.innerHTML = topRows.map(r => `
+    <tr>
+      <td>${r.prediction}</td>
+      <td>${r.fraud_probability}%</td>
+      <td>${r.risk_level}</td>
+      <td>${r.recommended_action}</td>
+    </tr>
+  `).join('');
+
+  renderBatchRiskChart(summary.risk_distribution);
+  resultBox.style.display = 'block';
+}
+
+function renderBatchRiskChart(distribution) {
+  const ctx = document.getElementById('batch-risk-chart');
+  if (!ctx || !distribution) return;
+
+  if (batchRiskChart) batchRiskChart.destroy();
+  batchRiskChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Critical', 'High', 'Medium', 'Low'],
+      datasets: [{
+        label: 'Rows',
+        data: [distribution.Critical, distribution.High, distribution.Medium, distribution.Low],
+        backgroundColor: ['#ff5f74', '#ff9d5e', '#ffd166', '#00d3b4'],
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { ticks: { color: '#7b7fa8' }, grid: { color: 'rgba(255,255,255,0.06)' } },
+        x: { ticks: { color: '#7b7fa8' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      },
+      plugins: { legend: { labels: { color: '#e8eaf6' } } },
+    },
+  });
+}
+
+async function loadInsights() {
+  try {
+    const res = await fetch('/insights');
+    if (!res.ok) return;
+    const payload = await res.json();
+    renderInsightCharts(payload.dataset, payload.training_info);
+  } catch (_) {
+    // Keep UI functional even if insights endpoint is unavailable.
+  }
+}
+
+function createChart(elId, config) {
+  const ctx = document.getElementById(elId);
+  if (!ctx) return;
+  const chart = new Chart(ctx, config);
+  chartInstances.push(chart);
+}
+
+function runEntranceAnimations() {
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReduced) return;
+
+  const revealTargets = document.querySelectorAll(
+    '.hero-header, .stats-row .stat-pill, .main-card, .chart-card, .batch-card, .page-footer'
+  );
+
+  revealTargets.forEach((el, idx) => {
+    el.classList.add('reveal-item');
+    const delay = Math.min(idx * 55, 700);
+    setTimeout(() => el.classList.add('is-visible'), delay);
+  });
+}
+
+function renderInsightCharts(dataset, trainingInfo) {
+  chartInstances.forEach(c => c.destroy());
+  chartInstances = [];
+
+  const classLabels = dataset?.class_distribution?.labels || ['Legitimate', 'Fraud'];
+  const classRawValues = dataset?.class_distribution?.values || [0, 0];
+  const classTotal = classRawValues.reduce((a, b) => a + b, 0);
+  const classValues = classTotal
+    ? classRawValues.map(v => Number(((v / classTotal) * 100).toFixed(3)))
+    : [0, 0];
+  const hourlyLabels = dataset?.hourly_fraud_rate?.labels || ['00:00', '06:00', '12:00', '18:00'];
+  const hourlyValues = dataset?.hourly_fraud_rate?.values || [0, 0, 0, 0];
+  const amountLabels = dataset?.amount_histogram?.labels || ['0-10', '10-20', '20-30', '30-40'];
+  const amountValues = dataset?.amount_histogram?.values || [0, 0, 0, 0];
+
+  createChart('class-chart', {
+    type: 'bar',
+    data: {
+      labels: classLabels,
+      datasets: [{
+        data: classValues,
+        backgroundColor: ['#00d3b4', '#ff5f74'],
+        borderRadius: 5,
+        barThickness: 10,
+        maxBarThickness: 12,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: {
+            color: '#7b7fa8',
+            callback: (v) => `${v}%`,
+          },
+          grid: { color: 'rgba(255,255,255,0.06)' },
+        },
+        x: { ticks: { color: '#7b7fa8' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      },
+      plugins: {
+        legend: { display: false, labels: { color: '#e8eaf6' } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.parsed.y.toFixed(3)}%`,
+          },
+        },
+      },
+    },
+  });
+
+  createChart('hourly-chart', {
+    type: 'line',
+    data: {
+      labels: hourlyLabels,
+      datasets: [{
+        label: 'Fraud rate %',
+        data: hourlyValues,
+        borderColor: '#ff7d61',
+        backgroundColor: 'rgba(255, 125, 97, 0.2)',
+        pointRadius: 0,
+        pointHoverRadius: 3,
+        tension: 0.4,
+        borderWidth: 2,
+        fill: true,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          display: false,
+          grid: { display: false },
+        },
+        x: {
+          display: false,
+          grid: { display: false },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(8, 22, 32, 0.95)',
+          titleColor: '#ffd07e',
+          bodyColor: '#e8eaf6',
+          callbacks: {
+            label: (ctx) => `Fraud Rate: ${ctx.parsed.y.toFixed(3)}%`,
+          },
+        },
+      },
+    },
+  });
+
+  createChart('amount-chart', {
+    type: 'bar',
+    data: {
+      labels: amountLabels,
+      datasets: [{
+        label: 'Transactions',
+        data: amountValues,
+        backgroundColor: 'rgba(0, 211, 180, 0.7)',
+        borderRadius: 4,
+        barThickness: 7,
+        maxBarThickness: 8,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { ticks: { color: '#7b7fa8' }, grid: { color: 'rgba(255,255,255,0.06)' } },
+        x: { ticks: { color: '#7b7fa8', maxRotation: 45, minRotation: 45 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      },
+      plugins: { legend: { labels: { color: '#e8eaf6' } } },
+    },
+  });
+
+  const lr = trainingInfo?.models?.logistic_regression;
+  const dt = trainingInfo?.models?.decision_tree;
+  const rf = trainingInfo?.models?.random_forest;
+  
+  const accData = [
+    lr ? lr.accuracy * 100 : 0, 
+    dt ? dt.accuracy * 100 : 0, 
+    rf ? rf.accuracy * 100 : 0
+  ];
+  const precData = [
+    lr ? lr.precision * 100 : 0, 
+    dt ? dt.precision * 100 : 0, 
+    rf ? rf.precision * 100 : 0
+  ];
+  const recData = [
+    lr ? lr.recall * 100 : 0, 
+    dt ? dt.recall * 100 : 0, 
+    rf ? rf.recall * 100 : 0
+  ];
+  const f1Data = [
+    lr ? lr.f1 * 100 : 0, 
+    dt ? dt.f1 * 100 : 0, 
+    rf ? rf.f1 * 100 : 0
+  ];
+
+  createChart('metrics-chart', {
+    type: 'bar',
+    data: {
+      labels: ['Logistic Regression', 'Decision Tree', 'Random Forest'],
+      datasets: [
+        {
+          label: 'Accuracy',
+          data: accData,
+          backgroundColor: '#0d6efd', /* Blue */
+          borderRadius: 2,
+          barThickness: 10,
+          maxBarThickness: 12,
+        },
+        {
+          label: 'Precision',
+          data: precData,
+          backgroundColor: '#fd7e14', /* Orange */
+          borderRadius: 2,
+          barThickness: 10,
+          maxBarThickness: 12,
+        },
+        {
+          label: 'Recall',
+          data: recData,
+          backgroundColor: '#20c997', /* Teal/Green */
+          borderRadius: 2,
+          barThickness: 10,
+          maxBarThickness: 12,
+        },
+        {
+          label: 'F1-Score',
+          data: f1Data,
+          backgroundColor: '#6f42c1', /* Purple */
+          borderRadius: 2,
+          barThickness: 10,
+          maxBarThickness: 12,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { 
+          min: 0, 
+          max: 100, 
+          ticks: { 
+            color: '#7b7fa8',
+            callback: (v) => `${v}%`
+          }, 
+          grid: { color: 'rgba(255,255,255,0.06)' },
+          title: {
+            display: true,
+            text: 'Percentage (%)',
+            color: '#7b7fa8'
+          }
+        },
+        x: { ticks: { color: '#7b7fa8' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      },
+      plugins: { 
+        legend: { labels: { color: '#e8eaf6', boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toFixed(2)}%`,
+          },
+        } 
+      },
+    },
+  });
+
+  renderHistoryChart();
+}
+
+loadInsights();
+runEntranceAnimations();
 </script>
 </body>
 </html>
